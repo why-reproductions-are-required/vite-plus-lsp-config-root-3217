@@ -72,6 +72,14 @@ Full results are saved under the ignored `results/` directory:
 - `dependencies.json`: shared Vite+ core verification.
 - `baseline/` and `patched/`: `matrix.json`, `cli-helper.json`, `lsp-summary.json`, full `lsp-*.json` protocol logs, and `compatibility.json`.
 
+## GitHub Actions
+
+The [verification workflow](.github/workflows/verify.yml) runs on pull requests and pushes to `main`. It uses Linux, macOS, and Windows runners with the Node.js version from `.node-version`.
+
+Each job runs `npm ci` and `npm run compare`. The comparison checks dependency overrides, config resolution, the CLI helper, real LSP sessions, and the known compatibility differences in both modes. Unexpected outcomes fail the job; expected failures remain part of the comparison.
+
+The workflow uploads `results/` as a separate artifact for each platform, including when a check fails. Artifacts are retained for 14 days. If installation fails before results exist, inspect the job log.
+
 ## Root resolution results
 
 Each mode covers two configs: `plain` has no explicit `root`, `lint`, or `fmt`; `custom` has `root: 'app'`, `lint.rules['no-console']: 'error'`, and `fmt.semi: false`. Each runs from both the config directory and the sibling `other` directory.
