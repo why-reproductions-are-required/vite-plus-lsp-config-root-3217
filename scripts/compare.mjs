@@ -25,14 +25,14 @@ function run(label, script, args = [], timeout = 180_000) {
 }
 
 function applyPatches() {
-  run('Apply local dependency patches', patchPackage, ['--error-on-fail']);
+  run('Apply the two Oxc consumer adapters', patchPackage, ['--error-on-fail']);
   restored = true;
 }
 
 function runSuite(mode) {
   for (const script of ['matrix', 'cli-helper', 'lsp', 'compatibility']) {
     run(`${mode}: ${script}`, path.join(root, `scripts/${script}.mjs`),
-      mode === 'baseline' ? ['--baseline'] : []);
+      mode === 'preview' ? ['--baseline'] : []);
   }
 }
 
@@ -41,10 +41,10 @@ try {
   applyPatches();
   run('Verify the shared Vite+ core dependency', path.join(root, 'scripts/verify-deps.mjs'));
   restored = false;
-  run('Restore original dependency files for the baseline', patchPackage, ['--reverse', '--error-on-fail']);
-  runSuite('baseline');
+  run('Restore the published Oxc consumers for the preview baseline', patchPackage, ['--reverse', '--error-on-fail']);
+  runSuite('preview');
   applyPatches();
-  runSuite('patched');
+  runSuite('adapted');
   passed = true;
 } catch (error) {
   console.error(error.message);
@@ -57,6 +57,7 @@ try {
   writeFileSync(path.join(root, 'results/comparison.json'), `${JSON.stringify({
     passed,
     patchesApplied: restored,
+    comparison: 'The same upstream preview with original Oxc consumers, then with the two consumer adapters.',
     node: process.version,
     platform: process.platform,
     arch: process.arch,
@@ -68,5 +69,5 @@ try {
 console.log(passed
   ? '\nBoth modes matched their expected outcomes, including known compatibility differences.'
   : '\nComparison failed. Inspect the output and results/comparison.json.');
-console.log(restored ? 'Local patches are applied.' : 'Could not restore patches. Run npm ci before retrying.');
+console.log(restored ? 'Oxc consumer adapters are applied; the Vite+ implementation is unchanged.' : 'Could not restore adapters. Run npm ci before retrying.');
 process.exitCode = passed && restored ? 0 : 1;

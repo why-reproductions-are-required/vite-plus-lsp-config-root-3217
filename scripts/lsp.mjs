@@ -5,13 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import vitePlusPackage from 'vite-plus/package.json' with { type: 'json' };
+import { baseline, mode, assertInstalledState } from './installed-state.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const baseline = process.argv.includes('--baseline');
-const mode = baseline ? 'baseline' : 'patched';
-const vitePlus = await import('vite-plus');
-assert.equal(typeof vitePlus.resolveConfigFile === 'function', !baseline,
-  `The installed vite-plus package does not match ${mode} mode. Apply or reverse the patch first.`);
+await assertInstalledState();
 const resultsDir = path.join(root, 'results', mode);
 const timeoutMs = 20_000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -282,8 +279,8 @@ writeFileSync(path.join(resultsDir, 'lsp-summary.json'), `${JSON.stringify(summa
 console.table(summary, ['tool', 'fixture', 'cwd', 'passed', 'config', 'exit']);
 if (summary.every(({ passed }) => passed)) {
   console.log(baseline
-    ? 'Baseline confirmed: both LSP servers fail to load config when cwd=other.'
-    : 'Patch confirmed: both LSP servers load default and custom roots from either cwd.');
+    ? 'Published preview confirmed: both LSP servers still fail to load config when cwd=other.'
+    : 'Consumer adapters confirmed: both LSP servers use the preview API and load default and custom roots from either cwd.');
   console.log('Successful custom cases apply no-console and semi:false from the Vite config.');
   console.log(`Full protocol logs: results/${mode}/lsp-*.json`);
 } else {

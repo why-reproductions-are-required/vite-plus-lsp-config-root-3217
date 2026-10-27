@@ -2,15 +2,15 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as vitePlus from 'vite-plus';
-import { u as withConfigMetadataResolution } from '../node_modules/vite-plus/dist/define-config-ChwJcu5e.js';
+import { withConfigMetadataResolution } from '../node_modules/vite-plus/dist/define-config.js';
+import { baseline, mode } from './installed-state.mjs';
 
 const caseName = process.argv[2];
-const baseline = process.argv.includes('--baseline');
 assert.ok(['observe', 'requires-config-file', 'lazy-plugins'].includes(caseName), 'Unknown probe case');
 assert.equal(
   typeof vitePlus.resolveConfigFile,
-  baseline ? 'undefined' : 'function',
-  `The ${baseline ? 'baseline' : 'patched'} probe requires matching installed package state`,
+  'function',
+  'Both API controls require the published preview build',
 );
 
 const project = fileURLToPath(new URL('../probes/', import.meta.url));
@@ -49,7 +49,8 @@ try {
 }
 
 console.log(JSON.stringify({
-  mode: baseline ? 'baseline' : 'patched',
+  mode,
+  api: baseline ? 'resolveConfig' : 'resolveConfigFile',
   cwd: process.cwd(),
   configFile,
   expectedRoot: path.join(project, 'app'),

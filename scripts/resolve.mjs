@@ -1,20 +1,16 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfigFromFile, resolveConfig } from 'vite-plus';
-import * as vitePlusApi from 'vite-plus';
+import { resolveConfig, resolveConfigFile } from 'vite-plus';
 import vitePlusPackage from 'vite-plus/package.json' with { type: 'json' };
+import { assertInstalledState } from './installed-state.mjs';
 
 const base = fileURLToPath(new URL('../', import.meta.url));
-const baseline = process.argv.includes('--baseline');
 const [method, fixture, cwdChoice] = process.argv.slice(2).filter(arg => arg !== '--baseline');
-if ((typeof vitePlusApi.resolveConfigFile === 'function') === baseline) {
-  console.error(`Expected ${baseline ? 'unpatched' : 'patched'} dependencies. Use npm run patch:${baseline ? 'revert' : 'apply'}.`);
-  process.exit(2);
-}
-if (!['current', 'inline', 'preserve', 'api', 'oxlint'].includes(method)
+assertInstalledState();
+if (!['current', 'inline', 'api', 'oxlint'].includes(method)
   || !['plain', 'custom'].includes(fixture)
   || !['project', 'other'].includes(cwdChoice)) {
-  console.error('Usage: node scripts/resolve.mjs <current|inline|preserve|api|oxlint> <plain|custom> <project|other> [--baseline]');
+  console.error('Usage: node scripts/resolve.mjs <current|inline|api|oxlint> <plain|custom> <project|other> [--baseline]');
   process.exit(2);
 }
 
@@ -31,17 +27,8 @@ try {
     config = await resolveConfig({ configFile }, 'build');
   } else if (method === 'inline') {
     config = await resolveConfig({ root: project, configFile }, 'build');
-  } else if (method === 'preserve') {
-    // Diagnostic experiment only: this changes other Vite config semantics.
-    const loaded = await loadConfigFromFile({
-      command: 'build', mode: 'development', isSsrBuild: false, isPreview: false,
-    }, configFile);
-    const root = path.resolve(path.dirname(configFile), loaded.config.root ?? '');
-    config = await resolveConfig({ ...loaded.config, root, configFile: false }, 'build');
-    config.configFile = loaded.path;
-    config.configFileDependencies = loaded.dependencies;
   } else if (method === 'api') {
-    config = await vitePlusApi.resolveConfigFile(configFile);
+    config = await resolveConfigFile(configFile);
   } else {
     // Use the actual loader from the pinned Oxlint release.
     const { loadVitePlusConfigs } = await import('../node_modules/oxlint/dist/js_config.js');

@@ -2,12 +2,12 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { baseline, mode, assertInstalledState } from './installed-state.mjs';
 
 const base = fileURLToPath(new URL('../', import.meta.url));
-const baseline = process.argv.includes('--baseline');
-const mode = baseline ? 'baseline' : 'patched';
+assertInstalledState();
 const normalize = value => value.replaceAll('\\', '/');
-const methods = ['current', 'inline', 'preserve', ...(baseline ? [] : ['api']), 'oxlint'];
+const methods = ['current', 'inline', 'api', 'oxlint'];
 const results = [];
 let mismatches = 0;
 console.log('method     fixture  cwd      actual   expected');
@@ -19,7 +19,7 @@ for (const method of methods) {
       });
       let result;
       try { result = JSON.parse(child.stdout.trim().split('\n').at(-1)); } catch {}
-      const expectedOk = ['preserve', 'api'].includes(method) || (!baseline && method === 'oxlint')
+      const expectedOk = method === 'api' || (!baseline && method === 'oxlint')
         || (method === 'inline' ? fixture === 'plain' : cwd === 'project');
       const errorText = result?.error ?? result?.raw?.Failures?.map(failure => failure.error).join('\n') ?? '';
       const expectedErrorDirectory = path.join(base, 'fixtures', method === 'inline' ? fixture : 'other', 'src');

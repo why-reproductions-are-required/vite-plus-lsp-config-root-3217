@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Reproduce Vite+ issue #3217: LSP config resolution depends on the server working directory.",
+  "description": "Verify the upstream Vite+ config API preview with Oxlint and Oxfmt consumer adapters.",
   "engines": {
     "node": ">=24.0.0"
   },
@@ -25,11 +25,11 @@
     "oxlint": "1.89.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
-    "vite-plus": "1.4.0"
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.0.0-commit.ba6364a0574e955a2886e4d06fa02eea2b2c24fa",
+    "vite-plus": "0.0.0-commit.ba6364a0574e955a2886e4d06fa02eea2b2c24fa"
   },
   "overrides": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.0.0-commit.ba6364a0574e955a2886e4d06fa02eea2b2c24fa",
     "vitest": "5.0.5"
   },
   "devDependencies": {

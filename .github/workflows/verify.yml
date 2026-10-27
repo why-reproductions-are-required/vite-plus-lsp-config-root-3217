@@ -1,4 +1,4 @@
-name: Verify config root patch
+name: Verify preview config API
 
 on:
   pull_request:
@@ -35,10 +35,10 @@ jobs:
           node-version-file: .node-version
           cache: npm
 
-      - name: Install dependencies and apply local patches
+      - name: Install the preview and Oxc consumer adapters
         run: npm ci
 
-      - name: Compare original and patched packages
+      - name: Compare the preview with and without consumer adapters
         run: npm run compare
 
       - name: Upload comparison results and LSP logs

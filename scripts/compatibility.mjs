@@ -3,10 +3,10 @@ import { spawnSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { baseline, mode, assertInstalledState } from './installed-state.mjs';
 
 const base = fileURLToPath(new URL('../', import.meta.url));
-const baseline = process.argv.includes('--baseline');
-const mode = baseline ? 'baseline' : 'patched';
+await assertInstalledState();
 const normalize = value => value?.replaceAll('\\', '/') ?? null;
 const records = [];
 
@@ -89,8 +89,9 @@ const directory = path.join(base, 'results', mode);
 await mkdir(directory, { recursive: true });
 await writeFile(path.join(directory, 'compatibility.json'), `${JSON.stringify({
   mode,
+  api: baseline ? 'resolveConfig' : 'resolveConfigFile',
   passed,
-  purpose: 'Check the exact proposal, including expected compatibility differences. A passing suite does not imply production readiness.',
+  purpose: 'Compare the raw resolveConfig control and the published preview resolveConfigFile API. Expected compatibility differences do not imply production readiness.',
   records,
 }, null, 2)}\n`);
 process.exitCode = passed ? 0 : 1;

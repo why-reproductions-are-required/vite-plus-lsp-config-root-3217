@@ -3,18 +3,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import * as vitePlusApi from 'vite-plus';
-// Private bundle entry from the exact pinned vite-plus@1.4.0 release.
-import { a as resolveViteConfig, n as findViteConfigUp } from '../node_modules/vite-plus/dist/resolve-vite-config-Dn5896A4.js';
+import { mode, assertInstalledState } from './installed-state.mjs';
+// Private bundle entry from the pinned PR 3249 preview at commit ba6364a.
+import { a as resolveViteConfig, n as findViteConfigUp } from '../node_modules/vite-plus/dist/resolve-vite-config-BUZW156h.js';
 import { findMonorepoRoot } from '../node_modules/vite-plus/binding/index.js';
 
 const base = fileURLToPath(new URL('../', import.meta.url));
-const baseline = process.argv.includes('--baseline');
-const mode = baseline ? 'baseline' : 'patched';
 const normalize = value => value?.replaceAll('\\', '/');
-if ((typeof vitePlusApi.resolveConfigFile === 'function') === baseline) {
-  throw new Error(`Expected ${mode} dependencies. Use npm run patch:${baseline ? 'revert' : 'apply'}.`);
-}
+await assertInstalledState();
 const results = [];
 for (const fixture of ['plain', 'custom']) {
   for (const cwd of ['project', 'other']) {
@@ -29,11 +25,8 @@ for (const fixture of ['plain', 'custom']) {
   }
 }
 for (const result of results) {
-  const error = result.error?.replaceAll('\\', '/') ?? '';
-  result.matched = baseline && result.fixture === 'custom'
-    ? !result.ok && error.includes('Could not resolve entry for router entry: router in ')
-      && error.includes(path.join(base, 'fixtures/custom/src').replaceAll('\\', '/'))
-    : result.ok && normalize(result.root) === normalize(path.join(base, 'fixtures', result.fixture, result.fixture === 'custom' ? 'app' : ''));
+  result.matched = result.ok
+    && normalize(result.root) === normalize(path.join(base, 'fixtures', result.fixture, result.fixture === 'custom' ? 'app' : ''));
 }
 
 // Isolate fallback and parent-config discovery from repository and ancestor configs.
@@ -73,7 +66,7 @@ try {
     assert.equal(normalize(discoveredWorkspaceRoot), normalize(workspace),
       'The pinned helper must detect the temporary workspace');
     const config = await resolveViteConfig(child, { traverseUp: true });
-    const expectedRoot = baseline ? child : app;
+    const expectedRoot = app;
     results.push({ fixture: 'traverse-up', cwd: 'child', ok: true, root: config.root,
       configFile: config.configFile ?? null, expectedRoot, discoveredWorkspaceRoot,
       matched: normalize(config.root) === normalize(expectedRoot)
