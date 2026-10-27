@@ -14,6 +14,7 @@ Use Node.js 24 or newer. The original reproduction was verified with Node.js `24
 git clone https://github.com/why-reproductions-are-required/vite-plus-lsp-config-root-3217.git
 cd vite-plus-lsp-config-root-3217
 npm ci
+npm run verify:deps
 npm run repro
 npm run repro:lsp
 ```
@@ -32,17 +33,36 @@ npm test
 
 The repository pins Vite+ `1.4.0`, the npm `latest` release checked on October 27, 2026, and its matching tool versions. The original Vite+ `1.3.0` reproduction remains available at [commit `70ef7fa`](https://github.com/why-reproductions-are-required/vite-plus-lsp-config-root-3217/tree/70ef7fa32b42afee6af90d4a695235e63c613b84).
 
-Retested with Node.js `24.22.1` on macOS arm64: all 16 matrix cases, the CLI helper comparison, and all four LSP cases matched the expected outcomes below. The wrong-root config error still occurs with Vite+ `1.4.0`.
+Retested after `npm ci` with Node.js `24.22.1` on macOS arm64: dependency verification confirmed one shared Vite+ core instance, and all 16 matrix cases, the CLI helper comparison, and all four LSP cases matched the expected outcomes below. The wrong-root config error still occurs with Vite+ `1.4.0`.
 
 | Package | Version |
 | --- | --- |
 | `vite-plus` | `1.4.0` |
-| `vite` | `8.3.5` |
+| `vite` | `npm:@voidzero-dev/vite-plus-core@1.4.0` (bundled Vite `8.3.5`) |
 | `oxlint` | `1.89.0` |
 | `oxfmt` | `0.74.0` |
 | `@tanstack/react-start` | `1.169.4` |
 
-The lockfile also pins transitive dependencies, including `@tanstack/start-plugin-core@1.171.55`, as required by this React Start release. Vite+ uses its own nested Vite core package. Use `npm ci` to keep these versions.
+The lockfile also pins transitive dependencies, including `@tanstack/start-plugin-core@1.171.55`, as required by this React Start release. Use `npm ci` to keep these versions.
+
+### Shared Vite instance
+
+Following the [Vite+ manual installation guide](https://viteplus.dev/guide/local-cli#manual-installation), the direct `vite` dependency and the root override both use `npm:@voidzero-dev/vite-plus-core@1.4.0`. The matching specifications also avoid npm's `EOVERRIDE` error. The Vitest override matches Vite+'s bundled version:
+
+```json
+{
+  "dependencies": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
+    "vite-plus": "1.4.0"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
+    "vitest": "5.0.5"
+  }
+}
+```
+
+Vite+, TanStack Start, Vitest, and other Vite consumers must resolve the same core package; there must be no standalone Vite installation. `npm run verify:deps` checks the lockfile, installed package identities, dependency resolution from the fixtures and Vite consumers, and the runtime identity of `resolveConfig` exported by `vite` and `vite-plus`. It also runs first in `npm test`. Results are saved in `results/dependencies.json`.
 
 ## Fixtures
 
@@ -59,7 +79,7 @@ fixtures/
     app/src/routes/__root.tsx
 ```
 
-The fixtures share the repository's installed dependencies. The `plain` package declares Vite and TanStack Start, without declaring Vite+.
+The fixtures share the repository's installed dependencies. `plain` denotes the default-root config without `lint` or `fmt` fields. Its `vite` declaration also uses the Vite+ core alias. This setup verifies the root-resolution bug with a correctly unified Vite+ toolchain.
 
 ## Config-resolution matrix
 

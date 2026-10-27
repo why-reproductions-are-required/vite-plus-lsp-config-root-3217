@@ -1,1 +1,1 @@
-{"name":"plain-vite-project","private":true,"type":"module","dependencies":{"vite":"8.3.5","@tanstack/react-start":"1.169.4"}}
+{"name":"default-root-project","private":true,"type":"module","dependencies":{"vite":"npm:@voidzero-dev/vite-plus-core@1.4.0","@tanstack/react-start":"1.169.4"}}
