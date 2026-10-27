@@ -1,0 +1,9 @@
+{
+  "folders": [
+    { "name": "other", "path": "fixtures/other" },
+    { "name": "plain", "path": "fixtures/plain" }
+  ],
+  "extensions": {
+    "recommendations": ["oxc.oxc-vscode"]
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+results/
+.tanstack/
+.vite/
+routeTree.gen.ts
+*.log
+.DS_Store

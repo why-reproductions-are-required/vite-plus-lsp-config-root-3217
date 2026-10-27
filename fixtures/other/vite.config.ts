@@ -1,0 +1,1 @@
+export default { lint: {}, fmt: {} };
