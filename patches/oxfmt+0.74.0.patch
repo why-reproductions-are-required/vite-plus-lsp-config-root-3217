@@ -1,0 +1,24 @@
+diff --git a/node_modules/oxfmt/dist/cli.js b/node_modules/oxfmt/dist/cli.js
+index da61d65..ce6e01c 100644
+--- a/node_modules/oxfmt/dist/cli.js
++++ b/node_modules/oxfmt/dist/cli.js
+@@ -124,7 +124,7 @@ async function importJsConfig(path, cacheKey) {
+ //#region ../shared/src-js/vite_plus_config.ts
+ let vitePlusCache = null;
+ /**
+-* Resolve a Vite+ config via `vite-plus`'s `resolveConfig` and extract the given field.
++* Resolve a Vite+ config via `vite-plus`'s experimental `resolveConfigFile` and extract the given field.
+ *
+ * `vite-plus` is loaded lazily and memoized for the process.
+ * Consumers declare it as an optional peer dependency; tsdown leaves the specifier external
+@@ -137,8 +137,8 @@ let vitePlusCache = null;
+ */
+ async function loadViteConfigField(path, fieldName) {
+ 	vitePlusCache ??= import("vite-plus");
+-	const { resolveConfig } = await vitePlusCache;
+-	const config = await resolveConfig({ configFile: path }, "build");
++	const { resolveConfigFile } = await vitePlusCache;
++	const config = await resolveConfigFile(path);
+ 	if (!(fieldName in config)) return null;
+ 	const fieldValue = config[fieldName];
+ 	if (!isObject(fieldValue)) throw new Error(`The \`${fieldName}\` field in the default export must be an object.`);

@@ -1,39 +1,136 @@
-# Vite+ LSP config root reproduction
+# Vite+ LSP config root: local patch experiment
 
-Reproduces [voidzero-dev/vite-plus#3217](https://github.com/voidzero-dev/vite-plus/issues/3217).
+Reproduces [voidzero-dev/vite-plus#3217](https://github.com/voidzero-dev/vite-plus/issues/3217) and applies [leaysgur's proposed shared config API](https://github.com/voidzero-dev/vite-plus/issues/3217#issuecomment-6431179065) to installed packages.
 
-Oxlint and Oxfmt in Vite+ mode load the correct `vite.config.ts`, but plugin entry resolution can use the server's working directory. With multiple workspace folders, TanStack Start then searches for `router.tsx` in the wrong project.
+Oxlint and Oxfmt in Vite+ mode load the correct `vite.config.ts`, but plugin entry resolution can use the server's working directory. In a workspace with multiple folders, TanStack Start then searches for `router.tsx` in the wrong project. The CLI config helper has a related problem: its inline `root` overrides the user's `root`.
 
-This repository includes a config-resolution matrix, actual Oxlint/Oxfmt LSP sessions, and a separate check of Vite+'s CLI config helper. The fixtures test config loading; they are not complete web applications.
+This branch uses `patch-package` to add an experimental `resolveConfigFile()` API and connect the actual Oxlint, Oxfmt, and CLI config loaders to it. No upstream Vite+ build or release is required. The root cases pass with this patch, but the exact proposal still changes other config semantics. The compatibility probes make those differences visible.
 
 ## Quick start
 
-Use Node.js 24 or newer. The original reproduction was verified with Node.js `24.22.1` on macOS arm64; `.node-version` records that version.
+Use Node.js 24 or newer. The experiment was verified with Node.js `24.22.1` on macOS arm64; `.node-version` records that version.
 
 ```sh
-git clone https://github.com/why-reproductions-are-required/vite-plus-lsp-config-root-3217.git
+git clone --branch experiment/shared-config-api https://github.com/why-reproductions-are-required/vite-plus-lsp-config-root-3217.git
 cd vite-plus-lsp-config-root-3217
 npm ci
-npm run verify:deps
-npm run repro
-npm run repro:lsp
+npm run compare
 ```
 
-No global Vite+ installation or running editor is required. The scripts use the Node executable that runs them.
+`npm ci` applies the three committed patches through `postinstall`. Keep development dependencies and install scripts enabled. If you deliberately install with `--ignore-scripts`, run `npm run patch:apply` afterward.
 
-Run every check, including the CLI helper comparison:
+`npm run compare` verifies the shared Vite+ dependency, reverses the patches, runs the baseline, reapplies the patches, and runs the patched cases. It leaves the patches applied, including after a reported check failure. Do not run it concurrently with another command that uses this installation. If the process is forcibly terminated, run `npm ci` to restore a known state.
+
+No global Vite+ installation or running editor is required. The scripts use the Node executable that runs them. The fixtures exercise config loading; they are not complete web applications.
+
+**Exit code 0 means all outcomes matched their expectations.** Expected root failures remain visible in the baseline and control rows. A known compatibility failure is also expected in the patched probes. A passing suite does not mean that the proposal is production-ready.
+
+## Local patches
+
+| Patch | Change |
+| --- | --- |
+| [`vite-plus+1.4.0.patch`](patches/vite-plus+1.4.0.patch) | Export `resolveConfigFile()` and use it in the CLI config helper when a config file is found. |
+| [`oxlint+1.89.0.patch`](patches/oxlint+1.89.0.patch) | Call the shared API when extracting the `lint` field. |
+| [`oxfmt+0.74.0.patch`](patches/oxfmt+0.74.0.patch) | Call the shared API when extracting the `fmt` field. |
+
+The API loads the user config once, resolves its `root` relative to the config directory, and passes that object to `resolveConfig()` with `configFile: false`. It restores `configFile` and `configFileDependencies` on the returned config. It also uses Vite+'s metadata-resolution guard to skip `lazyPlugins` factories.
+
+```js
+const loaded = await loadConfigFromFile(configEnv, configFile);
+const root = path.resolve(path.dirname(configFile), loaded.config.root ?? '');
+const config = await resolveConfig({ ...loaded.config, root, configFile: false }, 'build');
+config.configFile = loaded.path;
+config.configFileDependencies = loaded.dependencies;
+```
+
+The patch changes the pinned ESM bundles only. It does not add a CommonJS export or public TypeScript declarations. Bundle names and private helper imports are specific to these releases. This is an executable experiment, not a complete upstream API implementation.
+
+## Commands and results
+
+| Command | Purpose |
+| --- | --- |
+| `npm run compare` | Run the original and patched packages, then leave patches applied. |
+| `npm test` | Run all checks against patched packages only. |
+| `npm run verify:deps` | Verify every Vite consumer uses the same Vite+ core installation. |
+| `npm run repro` | Run the config-resolution matrix and its controls. |
+| `npm run repro:lsp` | Run actual Oxlint and Oxfmt LSP sessions. |
+| `npm run repro:cli` | Call the CLI's config helper. |
+| `npm run test:compat` | Check known API compatibility differences. |
+| `npm run patch:revert` / `npm run patch:apply` | Manually switch installed dependency files. |
+
+For a single baseline check, reverse the patches and pass `--baseline` to its script. Reapply them before running the default commands:
 
 ```sh
-npm test
+npm run patch:revert
+node scripts/lsp.mjs --baseline
+npm run patch:apply
 ```
 
-**A successful reproduction exits with code 0.** Rows marked `FAIL` in the matrix are expected failures in the affected implementation. An unexpected result, timeout, or startup error makes the check exit with code 1. Full results are written to the ignored `results/` directory.
+Full results are saved under the ignored `results/` directory:
 
-## Pinned dependencies
+- `comparison.json`: command status, runtime, package versions, and final patch state.
+- `dependencies.json`: shared Vite+ core verification.
+- `baseline/` and `patched/`: `matrix.json`, `cli-helper.json`, `lsp-summary.json`, full `lsp-*.json` protocol logs, and `compatibility.json`.
 
-The repository pins Vite+ `1.4.0`, the npm `latest` release checked on October 27, 2026, and its matching tool versions. The original Vite+ `1.3.0` reproduction remains available at [commit `70ef7fa`](https://github.com/why-reproductions-are-required/vite-plus-lsp-config-root-3217/tree/70ef7fa32b42afee6af90d4a695235e63c613b84).
+## Root resolution results
 
-Retested after `npm ci` with Node.js `24.22.1` on macOS arm64: dependency verification confirmed one shared Vite+ core instance, and all 16 matrix cases, the CLI helper comparison, and all four LSP cases matched the expected outcomes below. The wrong-root config error still occurs with Vite+ `1.4.0`.
+Each mode covers two configs: `plain` has no explicit `root`, `lint`, or `fmt`; `custom` has `root: 'app'`, `lint.rules['no-console']: 'error'`, and `fmt.semi: false`. Each runs from both the config directory and the sibling `other` directory.
+
+| Real consumer | Config / working directory | Original packages | Patched packages |
+| --- | --- | --- | --- |
+| Oxlint and Oxfmt LSP | Default root, cwd=project | Config loads | Config loads |
+| Oxlint and Oxfmt LSP | Default root, cwd=other | Wrong-root config error | Config loads |
+| Oxlint and Oxfmt LSP | `root: 'app'`, cwd=project | Config loads | Config loads |
+| Oxlint and Oxfmt LSP | `root: 'app'`, cwd=other | Wrong-root config error | Config loads |
+| CLI config helper | Default root, either cwd | Config loads | Config loads |
+| CLI config helper | `root: 'app'`, either cwd | User root is overwritten; config fails | Config loads |
+| CLI config helper | No config file | Root is the requested directory | Same root |
+| CLI helper with `traverseUp: true` | Parent config has `root: 'app'` | Root is the child package directory | Root is the parent's `app` directory |
+
+After a clean install, all 16 baseline matrix cases, 20 patched matrix cases, six CLI cases per mode, eight LSP cases per mode, and three compatibility probes per mode matched their expected outcomes.
+
+The matrix retains two controls. Calling the original `resolveConfig({ configFile }, 'build')` still fails from the other directory because that API is unchanged. Adding inline `root: configDir` fixes the default-root case but overwrites `root: 'app'`. The new API and the patched Oxlint loader succeed in all four root/cwd combinations.
+
+To see the raw API error directly while patches are applied:
+
+```sh
+node scripts/resolve.mjs current plain other
+```
+
+This command intentionally exits with code 1 and reports `Could not resolve entry for router entry: router in .../fixtures/other/src`.
+
+### Actual LSP behavior
+
+The runner starts the installed binaries with `--lsp` in Vite+ mode, sends JSON-RPC initialization and document messages, and shuts each server down. Workspace folders stay `[other, target]`; the server's working directory changes independently. Temporary fixture copies prevent ancestor configs from affecting discovery.
+
+A successful custom case must produce the configured `no-console` diagnostic or formatting without semicolons. This confirms that the target config is used. Every session must also complete its operation and exit cleanly.
+
+The unpatched servers can still return default lint diagnostics or formatting after a config error. The bug is a config-loading failure, not a guaranteed loss of all linting or formatting. The script does not test the VS Code extension's binary-selection logic. `repro.code-workspace` is available for optional manual inspection, but the automated run does not use an editor.
+
+## Compatibility results
+
+These probes use fresh processes and unset `NODE_ENV` before loading the config. Both modes use the metadata-resolution guard. Their working directory is the config directory, which separates API differences from the wrong-root problem.
+
+| Observation | Original `resolveConfig()` | Proposed `resolveConfigFile()` |
+| --- | --- | --- |
+| Config module and async factory evaluation | Once each | Once each |
+| Relative user root | Retained | Retained |
+| `lazyPlugins` factory during metadata resolution | Skipped | Skipped |
+| `NODE_ENV` during config module/factory evaluation, when initially unset | `development` | Unset |
+| `isSsrBuild` in plugin `apply` and `config` for a user config with `build.ssr` | `false` | `true` |
+| SSR-only probe plugin selected by `apply` | Skipped | Runs |
+| `configFile` / `configFileDependencies` inside `configResolved` | Path / dependencies | `undefined` / empty array |
+| Returned config metadata | Path / dependencies | Restored after hooks finish |
+| `inlineConfig` | Caller-supplied config-file option | Loaded user config, absolute root, and `configFile: false` |
+| Plugin that requires `configFile` in `configResolved` | Succeeds | Throws before metadata can be restored |
+
+The final row is an intentional failing plugin. Its probe passes only if the incompatibility is observed. Restoring metadata after `resolveConfig()` does not restore what hooks saw while it ran.
+
+The CLI's parent-config case is another behavior change. With `traverseUp: true`, the original helper keeps the child package directory as the root. The patched helper resolves the parent's declared root from the parent config directory. Existing monorepos that rely on the child directory need a compatibility decision.
+
+These findings support the shared-API and config-relative-root approach, but the two-stage loading implementation needs more compatibility work before an upstream fix. It does not change `process.cwd()`, so a plugin that reads that value directly can still depend on the launch directory. Plugins can also execute side effects during config loading unless their work is deferred with `lazyPlugins`.
+
+## Pinned dependencies and Vite override
 
 | Package | Version |
 | --- | --- |
@@ -42,12 +139,11 @@ Retested after `npm ci` with Node.js `24.22.1` on macOS arm64: dependency verifi
 | `oxlint` | `1.89.0` |
 | `oxfmt` | `0.74.0` |
 | `@tanstack/react-start` | `1.169.4` |
+| `patch-package` | `8.0.1` |
 
-The lockfile also pins transitive dependencies, including `@tanstack/start-plugin-core@1.171.55`, as required by this React Start release. Use `npm ci` to keep these versions.
+Vite+ `1.4.0` was the npm `latest` release checked on October 27, 2026. The lockfile pins transitive dependencies, including `@tanstack/start-plugin-core@1.171.55`.
 
-### Shared Vite instance
-
-Following the [Vite+ manual installation guide](https://viteplus.dev/guide/local-cli#manual-installation), the direct `vite` dependency and the root override both use `npm:@voidzero-dev/vite-plus-core@1.4.0`. The matching specifications also avoid npm's `EOVERRIDE` error. The Vitest override matches Vite+'s bundled version:
+Following the [Vite+ manual installation guide](https://viteplus.dev/guide/local-cli#manual-installation), the direct `vite` dependency and root override use the same core alias. The Vitest override matches Vite+'s bundled version:
 
 ```json
 {
@@ -62,100 +158,9 @@ Following the [Vite+ manual installation guide](https://viteplus.dev/guide/local
 }
 ```
 
-Vite+, TanStack Start, Vitest, and other Vite consumers must resolve the same core package; there must be no standalone Vite installation. `npm run verify:deps` checks the lockfile, installed package identities, dependency resolution from the fixtures and Vite consumers, and the runtime identity of `resolveConfig` exported by `vite` and `vite-plus`. It also runs first in `npm test`. Results are saved in `results/dependencies.json`.
+`verify:deps` checks the lockfile, installed package identities, physical paths, and the runtime identity of `resolveConfig` exported by `vite` and `vite-plus`. All 12 checked consumers resolve one core installation. There is no standalone Vite installation.
 
-## Fixtures
-
-```text
-fixtures/
-  other/                     # First workspace folder; empty lint/fmt config
-  plain/
-    vite.config.ts           # TanStack Start, no root, no lint/fmt fields
-    src/router.tsx
-    src/routes/__root.tsx
-  custom/
-    vite.config.ts           # TanStack Start with root: "app"
-    app/src/router.tsx
-    app/src/routes/__root.tsx
-```
-
-The fixtures share the repository's installed dependencies. `plain` denotes the default-root config without `lint` or `fmt` fields. Its `vite` declaration also uses the Vite+ core alias. This setup verifies the root-resolution bug with a correctly unified Vite+ toolchain.
-
-## Config-resolution matrix
-
-```sh
-npm run repro
-```
-
-Each case runs in a separate Node process. `project` means the target config's directory; `other` means the sibling workspace folder.
-
-| Loading method | No root, cwd=project | No root, cwd=other | root="app", cwd=project | root="app", cwd=other |
-| --- | --- | --- | --- | --- |
-| Current `resolveConfig({ configFile }, "build")` | OK | FAIL | OK | FAIL |
-| Add inline `root: configDir` | OK | OK | FAIL | FAIL |
-| Load user config, resolve its root from configDir | OK | OK | OK | OK |
-| Actual Oxlint config loader | OK | FAIL | OK | FAIL |
-
-The current loader searches in `other/src` instead of `plain/src`. The inline-root experiment fixes that case but overrides the custom config's `root: "app"`, so it searches in `custom/src` instead of `custom/app/src`.
-
-To see the original error directly:
-
-```sh
-node scripts/resolve.mjs current plain other
-```
-
-This individual command intentionally exits with code 1 and prints an error containing:
-
-```text
-Could not resolve entry for router entry: router in .../fixtures/other/src
-```
-
-Its successful control is:
-
-```sh
-node scripts/resolve.mjs current plain project
-```
-
-Results: `results/matrix.json`.
-
-## Actual LSP sessions
-
-```sh
-npm run repro:lsp
-```
-
-This starts the installed Oxlint and Oxfmt servers with `--lsp` in Vite+ mode, sends JSON-RPC initialization and document messages, and shuts them down afterward. The workspace folder list stays `[other, plain]`; only the server process's working directory changes.
-
-| Server | cwd=plain | cwd=other |
-| --- | --- | --- |
-| Oxlint LSP | Config loads | Config error referring to `other/src` |
-| Oxfmt LSP | Config loads | Config error referring to `other/src` |
-
-Temporary fixture copies isolate the sessions from any ancestor `vite.config.ts`. The script cleans them up after each session. Full protocol messages are saved in `results/lsp-*.json`; the summary is in `results/lsp-summary.json`.
-
-The servers remain alive and shut down normally. The minimal failing fixture can still receive default lint diagnostics and formatting edits. This reproduces **config loading failure**, not a guaranteed loss of all linting or formatting.
-
-The script explicitly selects Vite+ mode. It does not test the VS Code extension's binary-selection logic. `repro.code-workspace` contains the same two folders for optional manual inspection with the Oxc extension; that GUI path was not used for the automated verification.
-
-## CLI helper comparison
-
-```sh
-npm run repro:cli
-```
-
-This invokes the private `resolveViteConfig()` helper from the pinned `vite-plus@1.4.0` bundle. With the process already in the target project, the plain config succeeds but `root: "app"` fails. The helper passes an inline `root: cwd`, which overrides the user's root.
-
-Results: `results/cli-helper.json`. The bundle filename is specific to the pinned release.
-
-## Scope of the proposed root calculation
-
-The `preserve` experiment calculates:
-
-```js
-path.resolve(path.dirname(configFile), loaded.config.root ?? '')
-```
-
-It confirms the root-resolution direction discussed in the issue. It is not a production patch: loading the config first and then using `configFile: false` changes other semantics, including `inlineConfig`, SSR detection, and metadata visible to `configResolved` hooks. Plugins can still execute side effects during config loading unless they are wrapped with `lazyPlugins`.
+The unpatched reproduction with these overrides is preserved at [commit `09f4b84`](https://github.com/why-reproductions-are-required/vite-plus-lsp-config-root-3217/tree/09f4b845acafc707482a2105a09b584f41697bf9). The original Vite+ `1.3.0` version is at [commit `70ef7fa`](https://github.com/why-reproductions-are-required/vite-plus-lsp-config-root-3217/tree/70ef7fa32b42afee6af90d4a695235e63c613b84).
 
 ## Related discussion
 

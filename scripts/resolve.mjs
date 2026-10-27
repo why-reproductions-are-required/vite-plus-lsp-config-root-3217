@@ -1,14 +1,20 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfigFromFile, resolveConfig } from 'vite-plus';
+import * as vitePlusApi from 'vite-plus';
 import vitePlusPackage from 'vite-plus/package.json' with { type: 'json' };
 
 const base = fileURLToPath(new URL('../', import.meta.url));
-const [method, fixture, cwdChoice] = process.argv.slice(2);
-if (!['current', 'inline', 'preserve', 'oxlint'].includes(method)
+const baseline = process.argv.includes('--baseline');
+const [method, fixture, cwdChoice] = process.argv.slice(2).filter(arg => arg !== '--baseline');
+if ((typeof vitePlusApi.resolveConfigFile === 'function') === baseline) {
+  console.error(`Expected ${baseline ? 'unpatched' : 'patched'} dependencies. Use npm run patch:${baseline ? 'revert' : 'apply'}.`);
+  process.exit(2);
+}
+if (!['current', 'inline', 'preserve', 'api', 'oxlint'].includes(method)
   || !['plain', 'custom'].includes(fixture)
   || !['project', 'other'].includes(cwdChoice)) {
-  console.error('Usage: node scripts/resolve.mjs <current|inline|preserve|oxlint> <plain|custom> <project|other>');
+  console.error('Usage: node scripts/resolve.mjs <current|inline|preserve|api|oxlint> <plain|custom> <project|other> [--baseline]');
   process.exit(2);
 }
 
@@ -34,6 +40,8 @@ try {
     config = await resolveConfig({ ...loaded.config, root, configFile: false }, 'build');
     config.configFile = loaded.path;
     config.configFileDependencies = loaded.dependencies;
+  } else if (method === 'api') {
+    config = await vitePlusApi.resolveConfigFile(configFile);
   } else {
     // Use the actual loader from the pinned Oxlint release.
     const { loadVitePlusConfigs } = await import('../node_modules/oxlint/dist/js_config.js');
