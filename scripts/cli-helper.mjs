@@ -37,7 +37,8 @@ for (const result of results) {
 }
 
 // Isolate fallback and parent-config discovery from repository and ancestor configs.
-const sandbox = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'vite-plus-3217-cli-')));
+// Expand Windows short names so expected paths match Vite's native realpath.
+const sandbox = realpathSync.native(mkdtempSync(path.join(os.tmpdir(), 'vite-plus-3217-cli-')));
 try {
   const noConfig = path.join(sandbox, 'no-config');
   mkdirSync(noConfig);

@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -20,7 +20,8 @@ mkdirSync(resultsDir, { recursive: true });
 
 async function run(tool, fixture, cwdName) {
   // Keep ancestor Vite configs from affecting automatic config discovery.
-  const sandbox = mkdtempSync(path.join(os.tmpdir(), 'vite-plus-3217-'));
+  // Use the same long Windows paths as Vite and the servers when creating URIs.
+  const sandbox = realpathSync.native(mkdtempSync(path.join(os.tmpdir(), 'vite-plus-3217-')));
   const events = [];
   let child;
   let closed;
