@@ -3,6 +3,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writ
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import vitePlusPackage from 'vite-plus/package.json' with { type: 'json' };
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const resultsDir = path.join(root, 'results');
@@ -45,7 +46,7 @@ async function run(tool, cwdName) {
       cwd,
       env: {
         ...process.env,
-        VP_VERSION: '1.3.0',
+        VP_VERSION: vitePlusPackage.version,
         VP_COMMAND: tool === 'oxlint' ? 'lint' : 'fmt',
         VP_RESOLVING_CONFIG_METADATA: '1',
       },
@@ -148,7 +149,7 @@ async function run(tool, cwdName) {
         textDocument: { publishDiagnostics: { relatedInformation: true } },
       },
     });
-    if (!result?.capabilities || !result.serverInfo?.version?.includes('VP: 1.3.0')) {
+    if (!result?.capabilities || !result.serverInfo?.version?.includes(`VP: ${vitePlusPackage.version}`)) {
       throw new Error(`Unexpected initialization response: ${JSON.stringify(result)}`);
     }
     initialized = true;

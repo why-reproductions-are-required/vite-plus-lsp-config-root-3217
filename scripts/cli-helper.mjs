@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-// Private bundle entry from the exact pinned vite-plus@1.3.0 release.
-import { o as resolveViteConfig } from '../node_modules/vite-plus/dist/resolve-vite-config-BVr1SUNg.js';
+// Private bundle entry from the exact pinned vite-plus@1.4.0 release.
+import { a as resolveViteConfig } from '../node_modules/vite-plus/dist/resolve-vite-config-Dn5896A4.js';
 
 const base = fileURLToPath(new URL('../', import.meta.url));
 const results = [];

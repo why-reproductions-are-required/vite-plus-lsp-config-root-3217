@@ -30,12 +30,16 @@ npm test
 
 ## Pinned dependencies
 
+The repository pins Vite+ `1.4.0`, the npm `latest` release checked on October 27, 2026, and its matching tool versions. The original Vite+ `1.3.0` reproduction remains available at [commit `70ef7fa`](https://github.com/why-reproductions-are-required/vite-plus-lsp-config-root-3217/tree/70ef7fa32b42afee6af90d4a695235e63c613b84).
+
+Retested with Node.js `24.22.1` on macOS arm64: all 16 matrix cases, the CLI helper comparison, and all four LSP cases matched the expected outcomes below. The wrong-root config error still occurs with Vite+ `1.4.0`.
+
 | Package | Version |
 | --- | --- |
-| `vite-plus` | `1.3.0` |
-| `vite` | `8.3.4` |
-| `oxlint` | `1.88.0` |
-| `oxfmt` | `0.73.0` |
+| `vite-plus` | `1.4.0` |
+| `vite` | `8.3.5` |
+| `oxlint` | `1.89.0` |
+| `oxfmt` | `0.74.0` |
 | `@tanstack/react-start` | `1.169.4` |
 
 The lockfile also pins transitive dependencies, including `@tanstack/start-plugin-core@1.171.55`, as required by this React Start release. Vite+ uses its own nested Vite core package. Use `npm ci` to keep these versions.
@@ -119,7 +123,7 @@ The script explicitly selects Vite+ mode. It does not test the VS Code extension
 npm run repro:cli
 ```
 
-This invokes the private `resolveViteConfig()` helper from the pinned `vite-plus@1.3.0` bundle. With the process already in the target project, the plain config succeeds but `root: "app"` fails. The helper passes an inline `root: cwd`, which overrides the user's root.
+This invokes the private `resolveViteConfig()` helper from the pinned `vite-plus@1.4.0` bundle. With the process already in the target project, the plain config succeeds but `root: "app"` fails. The helper passes an inline `root: cwd`, which overrides the user's root.
 
 Results: `results/cli-helper.json`. The bundle filename is specific to the pinned release.
 

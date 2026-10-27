@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfigFromFile, resolveConfig } from 'vite-plus';
+import vitePlusPackage from 'vite-plus/package.json' with { type: 'json' };
 
 const base = fileURLToPath(new URL('../', import.meta.url));
 const [method, fixture, cwdChoice] = process.argv.slice(2);
@@ -14,7 +15,7 @@ if (!['current', 'inline', 'preserve', 'oxlint'].includes(method)
 const project = path.join(base, 'fixtures', fixture);
 const configFile = path.join(project, 'vite.config.ts');
 process.chdir(cwdChoice === 'project' ? project : path.join(base, 'fixtures', 'other'));
-process.env.VP_VERSION = '1.3.0';
+process.env.VP_VERSION = vitePlusPackage.version;
 process.env.VP_COMMAND = 'lint';
 process.env.VP_RESOLVING_CONFIG_METADATA = '1';
 
